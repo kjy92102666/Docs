@@ -67,26 +67,30 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "0728.md",
+                "file": "0729 CI,CD고려.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "0728"
+              "title": "0729 CI,CD고려"
             }
           },
           {
             "id": "7af622f405048128",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "0730.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "새 탭"
+              "title": "0730"
             }
           }
         ],
-        "currentTab": 4
+        "currentTab": 5
       }
     ],
     "direction": "vertical"
@@ -248,17 +252,19 @@
       "bases:새 베이스 생성하기": false
     }
   },
-  "active": "43186cf91cfa458c",
+  "active": "7af622f405048128",
   "lastOpenFiles": [
+    "0729 CI,CD고려.md",
+    "0730.md",
+    "연습장.md",
+    "0728.md",
     "missionRepo/mission.html",
     "missionRepo",
-    "0728.md",
     "0724.md",
     "Pasted image 20260724164623.png",
     "환영합니다!.md",
     "제미나이.md",
     "0725.md",
-    "0723 작업.md",
-    "연습장.md"
+    "0723 작업.md"
   ]
 }
