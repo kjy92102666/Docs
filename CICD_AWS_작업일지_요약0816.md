@@ -1,6 +1,6 @@
 # CI/CD · AWS 배포 작업일지 (요약)
 
-> **저장소** KDTbigdata8th/pcb-defects-mes · **발표** 2026-08-22 (토) · **최종 갱신** 2026-08-15
+> **저장소** KDTbigdata8th/pcb-defects-mes · **발표** 2026-08-22 (토) · **최종 갱신** 2026-08-16
 > 상세 기록은 `CICD_AWS_배포_작업일지_상세.docx` 참조
 
 ---
@@ -9,7 +9,7 @@
 
 ```
 사전테스트  ████████████████████  8/9~10  완료
-본작업     ██████████████░░░░░░ 8/11~22 5/10일차
+본작업     ████████████████░░░░ 8/11~22 6/10일차
 ```
 
 
@@ -21,8 +21,8 @@
 | 8/12 (수)     | 로컬 검증 보완 / 서버 준비 ⚠️판단시점            | ✅ 초과 달성 (AWS 첫 배포까지)               |
 | 8/13 (목)     | Lightsail 4GB 생성, 첫 배포             | ✅                                  |
 | 8/14 (금)     | 배포 문제 해결 (버퍼)                      | ✅                                  |
-| **8/15 (토)** | **health check, CD 워크플로우 🔒스키마동결** | **✅**                              |
-| 8/16 (일)     | 스키마 반영 재배포, YOLO fixture           | ⏳ 진행 중 (이미지 700장 업로드는 8/15에 조기 완료) |
+| 8/15 (토)     | health check, CD 워크플로우 🔒스키마동결     | ✅                                  |
+| **8/16 (일)** | **스키마 반영 재배포, YOLO fixture**       | **✅ 데이터 시딩·공정상태 버그 수정 완료 (YOLO 모델 업로드는 미착수, 8/17로 이월)** |
 | 8/17 (월)     | YOLO 배치 실측, 사양 조정                  | ⬜                                  |
 | 8/18 (화)     | 성능 튜닝, DB 백업 cron                  | ⬜                                  |
 | 8/19 (수)     | 전체 리허설                             | ⬜                                  |
@@ -44,10 +44,12 @@
 | frontend-check    | 21초                                           |
 | Python / Node     | 3.11 / 20                                     |
 | 베이스 이미지           | `ultralytics/ultralytics:8.4.104-cpu` (646MB) |
+| Frontend 테스트 (8/16 갱신) | **522** passed (AGV 애니메이션 동기화 테스트 3건 추가) |
 | DB 테이블 수 | **17개** (8/15 v10 기준, v9 대비 신규 2개: `post_inspection_buffer_slot`, `batch_material_consumption`) |
 | original_pcb 데이터 | **703건** (8/15 이미지 업로드·시딩 완료) |
+| 시딩된 배치 데이터 (8/16) | production_batch 4건, batched_pcb 576건, inspection_result 576건, defect_review 39건 |
 
-> skip 2건은 YOLO 스모크 테스트(fixture 미비). `best.pt` 모델 가중치 파일 소재 미확인 — 8/16 확인 필요.
+> skip 2건은 YOLO 스모크 테스트(fixture 미비). `best.pt` 모델 가중치 파일 소재 미확인 — 8/17 확인 예정(8/16→8/17 이월).
 
 ---
 
@@ -253,6 +255,56 @@
 
 ---
 
+### 8/16 (일) — 데이터 시딩 완료 + 공정상태 다중 사용자 동기화 버그 수정 ✅
+
+**범위**: 데이터 시딩(어제 API 조사 완료분 실행), 공정상태 화면 실사용 검증 중 발견한 버그 조사·수정. YOLO 모델 업로드는 착수 못하고 8/17로 이월.
+
+**한 일**
+
+1. **배치/검사 데이터 시딩 실행** (기존 `production_plan` 4건 전량)
+   - plan 1(8개)·2(8개)·3(460개)·4(100개) 순서로 배치 생성 → 라인 이송 완료 → 검사(시뮬레이션 API `/inspect`) 실행
+   - 결과: `production_batch` 4건, `batched_pcb`/`inspection_result` 576건, `defect_review` 39건 정상 생성
+   - `curl.exe` 실행 자체가 이 컴퓨터에서 원인 불명으로 차단되는 문제 발생 → **PowerShell `Invoke-RestMethod`로 전환**하여 계속 진행 (curl 문제 자체는 원인 미규명, 우회만 함)
+
+2. **`post_inspection_buffer_slot` 0건 문제 발견·해결**
+   - plan 4 배치 생성 시 `LINE_MODEL_CONFLICT`(라인 점유 중) → plan 3을 후검사 버퍼로 이송하려 하자 `POST_INSPECTION_BUFFER_FULL` 발생
+   - 원인: 8/6 migration(`20260806_add_process_status_lifecycle.sql`)의 "16개 슬롯 초기 INSERT"가 `docker-entrypoint-initdb.d`에 마운트 안 되어 있어, **기존 mariadb_data 볼륨을 계속 재사용해온 이 서버에는 한 번도 실행된 적 없었음** (schema.sql만 자동 실행되는 구조)
+   - 조치: 16개 슬롯 수동 INSERT (`slot_no` 1~16, `status='EMPTY'`)로 즉시 해결
+   - **부가 발견**: `POST_INSPECTION_BUFFER_FULL` 에러가 "테이블 행 0건"과 "행은 있으나 EMPTY 0건"을 구분하지 않고 동일하게 반환 (`backend/app/features/process_status/repository.py`) — 지금 당장 문제는 아니지만 향후 디버깅 시 혼동 소지 있음, 기록만 해둠
+
+3. **공정상태 화면 로직 3건 검증** (사용자 우려 제기 → 순차 조사)
+   - **트랜잭션 범위**: 계획/배치 생성, `/inspect`(시뮬레이션)는 전체 원자적 트랜잭션. YOLO `/start`는 PCB 단위 개별 트랜잭션(장시간 비동기 검사 고려한 설계). review 확인·공정 이송(버퍼/최종)은 API 호출별 트랜잭션. 전체 업무 흐름을 하나로 묶은 트랜잭션은 없으나, 이는 의도된 표준 패턴으로 판단(락 장시간 점유 방지) — **문제 없음**
+   - **batch 3/4가 `/inspect` 후 다르게 동작(버퍼 이송 여부)한 원인**: 백엔드 `/inspect`는 검사만 수행, 버퍼 자동 이송 로직 없음. **원인은 프론트엔드**(`ProcessStatus.jsx`)가 WebSocket으로 상태 변화 감지 시 `INSPECTED + LINE` 조건이면 자동으로 `post-inspection-transfer/start`를 호출하는 구조 — batch 4는 화면이 열려있어 자동 진행, batch 3은 당시 버퍼 슬롯 0건이라 자동 시도가 실패했던 것으로 추정. **의도된 기능, 버그 아님**
+   - **⚠️ 새로고침 시 AGV 애니메이션이 경로 시작점부터 재생되는 문제 — 실제 버그로 확정**
+     - DB 상태 자체는 `idempotent` 처리로 항상 안전 (재검증 완료, 테스트 존재)
+     - 그러나 `resumeServerTransfer()`(`frontend/src/domains/process-status/processStatusModel.js`)가 `batch.transfer_started_at`을 전혀 사용하지 않고 항상 경로 0%에서 애니메이션을 시작
+     - **AWS 배포 목적(여러 사용자 동시 시연)과 정면 충돌**: 서로 다른 시점에 접속한 두 브라우저가 같은 배치를 보면서도 서로 다른 AGV 위치를 표시하는 것을 코드 흐름으로 확인 → 우선순위를 YOLO보다 올려 즉시 수정 착수
+
+4. **AGV 애니메이션 동기화 버그 수정** (PR #46 → dev → main, `fix/agv-animation-sync` 브랜치)
+   - `positionAlongRoute()` 신규 함수: route 배열을 따라 주어진 거리만큼 이동한 지점의 정확한 좌표/routeIndex 계산
+   - `resumeServerTransfer()`가 `transfer_started_at` 기준 경과 시간 × `MOVE_SPEED(18)`로 이동 거리를 계산해 실제 위치에서 애니메이션 시작하도록 수정
+   - 이동 시간 초과 시(이미 도착했어야 하는 경우) 경로 끝 지점에 배치, 기존 도착 처리와 자연스럽게 연결
+   - `transfer_started_at` 없을 시 기존 동작(0%) 유지하는 fallback 보존
+   - 같은 세션 내 기존 AGV 이어받기 로직은 미변경
+   - 신규 테스트 3건 추가(`processStatusLifecycle.test.js`), 전체 프론트 테스트 522 passed, `npm run build` 성공
+   - 파일 최상단에 시뮬레이션 모듈 전체 동작 원리 요약 주석 추가 (한글, 기존 파일은 영어 주석 — 톤 불일치 있으나 우선 보류)
+   - `.gitignore`의 SSH 키 패턴을 `pcb-mes-prod-deploy*` → `pcb-mes-*-deploy*`로 확장 (컴퓨터별 다른 이름의 키 실수 커밋 방지 목적, 작업 중 개인키 파일이 untracked 상태로 노출될 뻔한 것 발견 후 조치)
+   - dev(PR #46) → main(PR #47 상당) → `Run workflow`(main, Deploy #7) 배포 완료, `Success` 확인
+
+**막힌 지점**
+
+| 문제 | 원인 | 해결 |
+|---|---|---|
+| `curl.exe` 실행 자체가 차단됨(`Access is denied.`, "현재 PC에서는 이 앱을 실행할 수 없습니다") | 원인 미규명. Windows 보안 보호 기록에도 관련 차단 이력 없음, curl.exe/git 등 0바이트 빈 파일이 프로젝트 폴더에 생성되는 등 이례적 현상 동반 | PowerShell `Invoke-RestMethod`로 전환해 우회, 근본 원인은 미해결로 남김 |
+| `plans/{id}/batch` 요청이 curl 차단 중 실제로는 서버에 성공 처리됨(`PLAN_ALREADY_BATCHED`로 뒤늦게 발견) | curl이 막혀 응답을 못 받았을 뿐 요청 자체는 서버에 도달·처리됨 | DB 직접 조회로 실제 상태(batch_id, transfer_id) 확인 후 이어서 진행 |
+| `post_inspection_buffer_slot` 0건 | migration이 `docker-entrypoint-initdb.d`에 마운트 안 되어 기존 볼륨 재사용 서버에 미반영 | 수동 INSERT 16개 슬롯 |
+| SSH DB 접속 시 `no configuration file provided` | `docker compose` 명령을 `~/pcb-defects-mes` 밖에서 실행 | `cd ~/pcb-defects-mes` 후 재실행 |
+| DB 비밀번호 변수(`$DB_ROOT_PW`)가 매번 빈 값 | 새 SSH 세션마다 초기화됨(전날 세션에만 설정됐던 것) | 매 세션마다 `DB_ROOT_PW=$(grep DB_ROOT_PASSWORD .env | cut -d '=' -f2)` 재실행 필요 — 반복 재발 |
+| `feature/process-status-agv-line-checkpoint` 브랜치 재사용 검토 | 8/9에 이미 dev 병합 완료된 오래된 브랜치로 확인됨, 그대로 체크아웃 시 rebase 충돌 위험 | dev에서 새 브랜치(`fix/agv-animation-sync`) 생성으로 대체 |
+| 프로젝트 폴더에 `curl.exe`, `git`, `how efcb842 --stat` 등 낯선 0바이트 파일 다수 발견 | curl 차단 사건과 연관된 것으로 추정(정확한 발생 경위 불명) | 삭제 조치, `.gitignore` 패턴도 함께 보강해 커밋 전 재확인하는 습관 필요 |
+
+---
+
 ## 누적 주의사항
 
 ### Docker / 배포
@@ -301,6 +353,17 @@
 - **`docker-compose.yml`의 `environment:`에 명시되지 않은 변수는 `.env`에 값이 있어도 컨테이너에 전달 안 됨** — 새 환경변수 추가 시 `.env`와 `docker-compose.yml` **양쪽** 다 확인
 - **`Run workflow` 실행 시 브랜치 선택을 반드시 확인** — 목록에 여러 브랜치가 뜨므로 실수로 옛 버전(dev)을 선택하지 않도록 주의
 
+### DB 볼륨·migration (신규, 8/16)
+- **`docker-entrypoint-initdb.d`에 마운트된 스크립트는 볼륨이 처음 생성될 때 딱 한 번만 실행됨** — 우리 서버는 볼륨을 계속 재사용 중이라, `schema.sql`(테이블 구조)만 최초 반영되고 `migrations/` 폴더의 초기 데이터 INSERT는 이후 추가돼도 서버에 자동 반영 안 됨
+- 실제로 8/6 migration(버퍼 슬롯 16개)이 이 문제로 누락되어 있었음 — **앞으로 새 migration이 생길 때마다 서버에 수동 반영 필요**, 자동화 방법은 8/18 이후 검토
+- SSH 세션에서 설정한 쉘 변수(`DB_ROOT_PW` 등)는 **세션 종료 시 사라짐** — 새 SSH 접속마다 재설정 필요, 매번 빈 값으로 조용히 실패할 수 있으니 `echo "[$VAR]"`로 먼저 확인하는 습관 필요
+
+### 공정상태 화면 / 프론트 상태 동기화 (신규, 8/16)
+- **공정상태 화면(`ProcessStatus.jsx`)이 검사 완료 배치를 자동으로 다음 단계까지 진행시킴** — 백엔드가 아니라 프론트가 WebSocket 상태 변화를 감지해 자동으로 이송 API를 호출하는 구조(의도된 기능). 데모 중 "안 눌렀는데 저절로 이동"해도 정상이니 팀 전체 공유 필요
+- **AGV 애니메이션은 브라우저별 로컬 상태로 실행되며, 서버 시각(`transfer_started_at`) 기반 위치 보정이 없으면 새 세션마다 경로 0%부터 재생됨** — 데이터 상태는 항상 안전(`idempotent` 처리)하지만, 화면 표시는 접속 시점에 따라 달라질 수 있음. 여러 사용자가 동시 접속하는 시연 환경에서는 반드시 서버 경과 시간 기반 위치 계산을 구현해야 함 (8/16 수정 완료)
+- **로컬 개발 환경에서 `curl.exe`가 원인 불명으로 실행 차단되는 경우가 있었음** — Windows 보안 보호 기록에 특별한 차단 이력 없이 발생. 재발 시 PowerShell `Invoke-RestMethod`로 즉시 전환해 우회하는 것을 권장 (curl 문제 자체 해결에 시간 쓰지 않기)
+- **API 요청이 클라이언트 쪽에서 실패한 것처럼 보여도 서버에는 이미 처리됐을 수 있음** — 응답을 못 받은 것과 요청이 실패한 것은 다름. 애매하면 DB를 직접 조회해서 실제 상태부터 확인 후 재시도 여부 판단할 것
+
 ### 개발 에이전트 프롬프트 가드레일
 ```
 [범위] 만들 파일 / 수정 대상 명시
@@ -345,10 +408,18 @@
 - [x] **DB 백업 방법(수동) 확보** (8/15)
 - [x] **ERD/테이블 정의서 v9 → v10 갱신** (8/15, 17개 테이블)
 - [x] **PCB 원본 이미지 700장(703건) 서버 업로드 + 시딩** (8/15)
-- [ ] **YOLO 모델(`best.pt`) 소재 확인 + 서버 업로드** (8/16 예정, 미착수)
-- [ ] **배치/검사 데이터 시딩 실행** (8/15 API 조사 완료, 실행은 8/16로 이월)
+- [x] **배치/검사 데이터 시딩 실행** (8/16 완료 — plan 1~4 전량, production_batch 4/batched_pcb 576/inspection_result 576/defect_review 39건)
+- [x] **`post_inspection_buffer_slot` 0건 문제 발견·해결** (8/16, migration 미반영이 원인, 수동 INSERT로 조치)
+- [x] **AGV 애니메이션 다중 세션 동기화 버그 수정** (8/16, PR #46, main 배포·검증 완료)
+- [ ] **YOLO 모델(`best.pt`) 소재 확인 + 서버 업로드** (8/15→8/16 순연, 8/17로 재이월 — 아직 미착수)
 - [ ] CI에 MariaDB 서비스 컨테이너 추가 — 실 DB 검증 테스트 CI 정식 지원 (8/18 예정)
 - [ ] SSH 키 파일 로컬 정리 (발표용 단기 프로젝트라 우선순위 낮음, 보류 결정)
+- [ ] DB 볼륨 재사용 시 migration 자동 미실행 문제 — `docker-entrypoint-initdb.d` 마운트 방식 개선 또는 배포 스크립트에 migration 실행 단계 추가 검토 (8/16 실제로 재현·확인됨, 8/18 이후 정식 해결 예정)
+- [x] 공정상태 프론트 자동 이송 로직 문서화 — 원인 규명 완료, 본 일지에 기록 (팀 공유는 별도 진행 필요)
+- [ ] `POST_INSPECTION_BUFFER_FULL` 에러가 "테이블 0건"과 "EMPTY 0건"을 구분 안 하는 문제 — 우선순위 낮음, 참고용 기록만
+- [ ] `curl.exe`가 로컬(노트북) 환경에서 실행 차단되는 원인 규명 — 급하지 않음, PowerShell로 우회 중
+- [ ] AGV 애니메이션 최상단 요약 주석이 한글로 작성되어 기존 파일(전체 영어 주석)과 톤 불일치 — 발표 후 정리 검토
+
 
 ### 기능
 - [x] **공정상태 규칙 정리** — 완료
@@ -379,6 +450,10 @@
 - [x] **DB 수동 백업 방법 확보 (8/15)**
 - [x] **ERD/테이블 정의서 v10 갱신, 17개 테이블 전수 검증 (8/15)**
 - [x] **PCB 원본 이미지 703건 서버 업로드·시딩 완료 (8/15)**
+- [x] **배치/검사 데이터 시딩 실행 완료 (8/16, 576건 검사·39건 검토 대상 생성)**
+- [x] **`post_inspection_buffer_slot` migration 미반영 문제 발견·수동 조치 (8/16)**
+- [x] **공정상태 트랜잭션 범위·자동 이송 로직 전수 검증 (8/16, 문제 없음 확정)**
+- [x] **AGV 애니메이션 다중 사용자 동기화 버그 발견·수정·배포 (8/16, PR #46 → main Deploy #7)**
 
 ---
 
@@ -389,8 +464,8 @@
 | 8/12 | 로컬 compose 구동 실패 | AWS 포기, 로컬 데모     | ✅ 통과                                                              |
 | 8/13 | OpenAI 전환 실패     | 챗봇 데모 제외          | ✅ 통과 (8/15 서버 반영까지 완료)                                            |
 | 8/15 | 재고관리 미완          | 미완 상태로 동결         | ✅ 통과 (`batch_material_consumption` 등 재고 관련 기능 8/8 이전 이미 구현·연동 확인) |
-| 8/16 | CD 미완            | 수동 배포 유지          | ✅ 통과 (수동 `workflow_dispatch` 방식으로 안정적으로 운영 중)                     |
-| 8/17 | 서버 YOLO 추론 실패    | 8GB 증설 → 사전 계산 결과 | ⏳ 판단 대기 (`best.pt` 파일 미확보, 8/16 확인 예정)                            |
+| 8/16 | CD 미완            | 수동 배포 유지          | ✅ 통과 (수동 `workflow_dispatch` 방식, 오늘도 3회 정상 배포)                    |
+| 8/17 | 서버 YOLO 추론 실패    | 8GB 증설 → 사전 계산 결과 | ⏳ 판단 대기 (`best.pt` 파일 미확보, 8/16에도 미착수 — 8/17 최우선 처리 필요)          |
 
 **우선순위: 배포 > 챗봇 > CI/CD**
 
@@ -407,7 +482,7 @@ Lightsail 4GB "pcb-mes-prod" (3.38.222.241) ← 실서버 배포 완료
      ├─ nginx    : React dist 서빙 + /api·/ws 프록시 (CORS 문제 소멸)
      ├─ backend  : FastAPI + YOLO
      └─ mariadb  : DB (포트 미노출, 내부망만)
- └─ 볼륨 : PCB 이미지(703장, 8/15 업로드 완료), best.pt (이미지에 굽지 않음, 8/16 업로드 예정)
+ └─ 볼륨 : PCB 이미지(703장, 8/15 업로드 완료), best.pt (이미지에 굽지 않음, 8/16 미착수 → 8/17 최우선 처리)
 ```
 
 **예상 비용 월 $20~25** (크레딧 $100으로 4개월 이상)
@@ -428,3 +503,86 @@ Codex 제안(ECS+ALB+RDS+SQS+NAT)은 월 $91~120으로 크레딧이 한 달 내 
 
 > 팀 프로젝트 범위에서는 **무중단(HA)보다 빠른 복구(DR)**에 투자하는 것이 합리적.
 > 현재 구성은 앱이 stateless이므로 로드밸런서 추가만으로 HA 확장 가능.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## 이게 뭔가요
+
+PCB 검사가 끝난 배치를 SMD(부품 실장) 공정으로 넘기기 직전에, **지금 자재 재고로 이 배치를 진행할 수 있는지** 보여주고 실제로 재고를 차감하는 "재고 관리" 화면입니다. 좌측 메뉴의 빈 placeholder였던 "재고 관리" 탭이 이제 실제로 동작합니다.
+
+- 검사완료된 배치들이 큐(대기열) 형태로 카드로 뜨고, 각 카드에 "진행 가능 / 진행 불가"가 바로 보입니다.
+- 카드를 누르면 그 배치가 어떤 부품을 얼마나 필요로 하는지, 지금 재고로 충분한지(ENOUGH / ORDER_NEED / PENDING) 상세 창에서 볼 수 있습니다.
+- "SMD로 인계" 버튼을 누르면 그 배치가 쓴 만큼 실제로 재고(`part.stock_qty`)가 줄어들고, 큐에서 빠집니다.
+
+설계 배경이 궁금하면 [`docs/superpowers/specs/2026-08-08-inventory-management-design.md`](https://github.com/KDTbigdata8th/pcb-defects-mes/pull/docs/superpowers/specs/2026-08-08-inventory-management-design.md), 구현 순서가 궁금하면 [`docs/superpowers/plans/2026-08-08-inventory-management.md`](https://github.com/KDTbigdata8th/pcb-defects-mes/pull/docs/superpowers/plans/2026-08-08-inventory-management.md)를 보시면 됩니다 — 이 PR의 모든 커밋이 그 계획을 그대로 따라갑니다.
+
+## 왜 이렇게 만들었나 (설계 포인트 3가지)
+
+**1. 소요량은 저장하지 않고 매번 계산합니다.**  
+`부품별 소요량 = 배치의 정상 PCB 수(normal_PCB_count) × BOM의 부품 수량(bom_item.quantity)`. 이 값을 캐싱하는 테이블을 따로 만들지 않고 조회할 때마다 계산합니다. BOM이 나중에 수정돼도 항상 최신값을 보여주기 위해서고, 이미 대시보드 KPI들([`dashboard/repository.py`](https://github.com/KDTbigdata8th/pcb-defects-mes/pull/backend/app/features/dashboard/repository.py))이 쓰는 것과 같은 패턴입니다.
+
+**2. 재고 차감은 동시성 잠금(`FOR UPDATE`)으로 보호합니다.**  
+같은 부품을 쓰는 배치 두 개를 두 사람이 거의 동시에 "인계"를 누르면, 잠금 없이는 둘 다 재고가 충분하다고 통과해서 재고가 음수로 내려갈 수 있습니다. `backend/app/features/inventory/service.py`의 `handoff_batch`는 배치와 관련 부품 행을 `SELECT ... FOR UPDATE`로 잠근 뒤 다시 검증하고, 통과했을 때만 같은 트랜잭션 안에서 차감·이력 기록·배치 상태 갱신을 한 번에 처리합니다. 이 패턴은 `backend/app/features/batch/`에서 이미 쓰던 방식을 그대로 따랐습니다.
+
+**3. 인계 여부는 기존 `production_batch.status`와 별개 컬럼(`smd_handoff_at`)으로 관리합니다.**  
+검사 흐름(`CREATED → ... → INSPECTED`)과 "SMD로 넘겼는지"는 서로 다른 개념이라, 기존 enum에 끼워 넣지 않고 nullable timestamp 컬럼을 새로 뒀습니다(`batched_pcb.line_entered_at`과 같은 기존 컨벤션).
+
+## 화면/API 요약
+
+|화면 요소|API|
+|---|---|
+|상단 4개 요약 타일(검사완료 배치 수, 진행가능/불가, 부족 자재 종류 수, 종합 판정)|`GET /api/inventory/queue`|
+|좌측 큐 카드 목록|`GET /api/inventory/queue`|
+|우측 부품 테이블 (카드 미선택 시 전체 재고, 선택 시 그 배치 소요량)|`GET /api/inventory/parts`, `GET /api/inventory/batches/{id}/requirements`|
+|"SMD로 인계" 버튼|`POST /api/inventory/batches/{id}/handoff`|
+
+## ⚠️ DB 스키마 변경 3건 — 리뷰 시 꼭 확인해 주세요
+
+- `production_batch.smd_handoff_at` (신규 컬럼)
+- `batch_material_consumption` (신규 테이블, 인계 시점마다 부품별 소비 이력 기록)
+- `production_batch.normal_PCB_count` (신규 컬럼) — **이건 원래 검사 완료 로직을 담당하는 팀원이 추가하기로 했던 컬럼입니다.** 로컬에서 이 기능을 테스트하려고 팀원이 공유해준 DDL을 그대로 마이그레이션 파일로 만들어 적용했습니다(`backend/db/migrations/20260808_add_normal_pcb_count.sql`). `ADD COLUMN IF NOT EXISTS`라 팀원이 별도로 같은 컬럼을 추가해도 충돌은 안 나지만, 마이그레이션 파일이 두 벌 남는 상태가 될 수 있으니 **DB 담당자 확인 부탁드립니다.**
+
+세 마이그레이션 다 `backend/db/migrations/`에 파일로 있고 `backend/db/schema.sql`에도 반영해 뒀습니다.
+
+## 테스트
+
+- 백엔드: `backend/tests/inventory/` 신규 5개 파일, unittest + mock 패턴 (기존 DB 연결 없이 repository 계층을 모킹). `python -m unittest discover -s backend/tests -t .` → 245개 전부 통과.
+- 프론트: `frontend/test/inventoryStructure.test.js` 등 신규 6개 테스트. `npm test` → 404/407 통과 (나머지 3개는 이 PR과 무관한 기존 실패 — dashboard CSS 셀렉터 누락 등, `dev`에도 이미 있던 문제입니다).
+- `npm run build` 정상.
+
+## 알아두면 좋은 것 (병합을 막을 정도는 아니지만)
+
+- **프론트 테스트가 실제 렌더링을 안 합니다.** `inventoryStructure.test.js`의 테스트들은 컴포넌트를 렌더링하는 게 아니라 소스 코드 문자열에 특정 패턴이 있는지 정규식으로 확인하는 방식입니다(이 리포의 기존 프론트 테스트 관행과 동일). 그래서 실제로 백엔드 응답 모양이 프론트 코드의 가정과 다른 버그(`PartsResponse`가 `{items: [...]}` 형태인데 배열로 착각한 버그)가 자동 테스트로는 안 잡히고 실제 브라우저에서만 발견됐습니다 — 이번 PR엔 고쳐서 반영했지만, 이런 종류의 버그를 자동으로 잡으려면 나중에 실제 렌더링 테스트가 필요합니다.
+- 재고 관리 페이지 자체는 조회/인계만 하고, 소비 이력을 보여주는 화면은 없습니다(이력 테이블만 쌓아둠 — "리포트 생성" 메뉴가 나중에 만들어질 때 쓸 수 있게).
+- 재고 부족(PENDING)인 배치는 인계 버튼이 비활성화됩니다. 강제로 인계하는 기능은 없습니다.
