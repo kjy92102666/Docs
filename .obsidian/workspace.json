@@ -8,175 +8,35 @@
         "type": "tabs",
         "children": [
           {
-            "id": "0b26f791a67d10c8",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "pcb-defects-mes 프로젝트에 필요한 메모.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "pcb-defects-mes 프로젝트에 필요한 메모"
-            }
-          },
-          {
-            "id": "43186cf91cfa458c",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "0729 CI,CD고려.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "0729 CI,CD고려"
-            }
-          },
-          {
-            "id": "7af622f405048128",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "0730.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "0730"
-            }
-          },
-          {
-            "id": "11c05d22f87dbaf5",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "0801멘토링.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "0801멘토링"
-            }
-          },
-          {
-            "id": "7a9e81b39cf811f7",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "공정상태 요약.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "공정상태 요약"
-            }
-          },
-          {
-            "id": "f3c555619ca9fd47",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "pcb-defects-mes 프로젝트에 필요한 메모.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "pcb-defects-mes 프로젝트에 필요한 메모"
-            }
-          },
-          {
-            "id": "e02668fc56e6cc6c",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "CICD_AWS_작업일지_요약.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "CICD_AWS_작업일지_요약"
-            }
-          },
-          {
-            "id": "91a8525d11d7c634",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "08/0801멘토링.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "0801멘토링"
-            }
-          },
-          {
-            "id": "3c91dc494775ff67",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "08/0804.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "0804"
-            }
-          },
-          {
-            "id": "44f4032254fccb94",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "08/0805.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "0805"
-            }
-          },
-          {
-            "id": "07b8d1d1874a6490",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "08/0801멘토링.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "0801멘토링"
-            }
-          },
-          {
             "id": "61a52ec3be4926d5",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "phase 1, 2, 3.md",
+                "file": "0819재고,챗봇 ppt 요약.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "phase 1, 2, 3"
+              "title": "0819재고,챗봇 ppt 요약"
+            }
+          },
+          {
+            "id": "1504c5b6de99adb3",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "0820.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "0820"
             }
           }
         ],
-        "currentTab": 11
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -340,35 +200,41 @@
       "bases:새 베이스 생성하기": false
     }
   },
-  "active": "61a52ec3be4926d5",
+  "active": "b1fc8b724462c9dc",
   "lastOpenFiles": [
+    "발표관련",
+    "PCB_MES_발표_시연_타임라인 900.md",
+    "PCB_MES_발표_시연_타임라인 530.md",
+    "PCB_MES_프로젝트_전체정리본_원본.md",
+    "PCB_MES_프로젝트_요약본.md",
+    "0819재고,챗봇 ppt 요약.md",
+    "0820.md",
     "0819.md",
-    "phase 1, 2, 3.md",
+    "0818.md",
+    "재고관리_챗봇_기능_조사_및_PPT구성안.md",
+    "CICD_AWS_작업일지_요약0819.md",
     "CICD_AWS_작업일지_요약0818.md",
-    "CICD_AWS_작업일지_요약0816.md",
-    "CICD_AWS_작업일지_요약.md",
-    "CICD_AWS_작업일지_요약0817.md",
-    "CICD_AWS_작업일지_요약0815.md",
-    "CICD_AWS_작업일지_요약0817 1.md",
-    "pcb-defects-mes 프로젝트에 필요한 메모.md",
-    "pcb-defects-mes. chatbot_openai.md",
-    "0817.md",
-    "시연 및 서버 기동시 필요한정보.md",
-    "0816.md",
-    "08/0807.md",
-    "08/0809.md",
-    "공정상태 요약.md",
-    "07/0730.md",
-    "07/0731 1.md",
-    "07/0730 1.md",
-    "07/Pasted image 20260730124617.png",
-    "0815.md",
-    "0814.md",
-    "0812예외처리 조사 보고서.md",
-    "2026-08-09~10_사전테스트_최종결과.md",
-    "2026-08-11~_CICD_AWS_작업계획.md",
     "권장폴더구조.md",
+    "무제.md",
+    "무제 2.md",
     "무제 1.md",
+    "시연 및 서버 기동시 필요한정보.md",
+    "소스분석용.md",
+    "연습장.md",
+    "챗봇 로컬.md",
+    "환영합니다!.md",
+    "AWS 설정 및 정보.md",
+    "CICD_AWS_작업_요약0817.md",
+    "phase 1, 2, 3.md",
+    "pcb-defects-mes. chatbot_openai.md",
+    "pcb-defects-mes 프로젝트에 필요한 메모.md",
+    "26.08/Pasted image 20260812213510.png",
+    "26.08/Pasted image 20260812210213.png",
+    "26.08/Pasted image 20260812210151.png",
+    "26.08",
+    "26.07/Pasted image 20260730124617.png",
+    "26.07",
+    "07/Pasted image 20260730124617.png",
     "08/Pasted image 20260812210151.png",
     "08",
     "08/Pasted image 20260812213510.png",
